@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>System Two</title></head>
+<body style="font-family: sans-serif">
+  <h2>System Two</h2>
+  <p id="status">Waiting for token from System One...</p>
+  <p id="session"></p>
+  <script>
+    const PARENT_ORIGIN = "__PARENT_ORIGIN__";
+
+    window.addEventListener("message", async (event) => {
+      if (event.origin !== PARENT_ORIGIN || event.source !== window.parent) return;
+      if (event.data?.type !== "token") return;
+      const r = await fetch("/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: event.data.token }),
+      });
+      const body = await r.json();
+      document.getElementById("status").textContent = r.ok
+        ? `Signed in as ${body.name}, token issued to ${body.azp} on behalf of the user`
+        : `Rejected: ${body.detail}`;
+      if (r.ok) {
+        // From here on System Two relies on its own session cookie, not the short-lived token.
+        const s = await fetch("/session");
+        document.getElementById("session").textContent = s.ok ? "System Two session active" : "No session";
+      }
+    });
+
+    // Listener is registered first, then we tell the parent we're ready.
+    window.parent.postMessage({ type: "ready" }, PARENT_ORIGIN);
+  </script>
+</body>
+</html>

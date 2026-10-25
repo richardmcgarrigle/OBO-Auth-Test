@@ -1,0 +1,36 @@
+{
+  "interactiveLogin": true,
+  "httpServer": "NettyWrapper",
+  "tokenCallbacks": [
+    {
+      "issuerId": "local-tenant",
+      "tokenExpiry": 300,
+      "requestMappings": [
+        {
+          "requestParam": "client_id",
+          "match": "system-one-api",
+          "claims": {
+            "aud": "system-two",
+            "scp": "access_as_user",
+            "azp": "${client_id}",
+            "tid": "local-tenant",
+            "ver": "2.0"
+          }
+        },
+        {
+          "requestParam": "client_id",
+          "match": "system-one-web",
+          "claims": {
+            "aud": "system-one-api",
+            "scp": "access_as_user",
+            "azp": "${client_id}",
+            "tid": "local-tenant",
+            "ver": "2.0",
+            "oid": "${subject}",
+            "preferred_username": "${subject}@contoso.test"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "obo-poc",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "start": "node scripts/run.mjs local",
+    "start:entra": "node scripts/run.mjs entra",
+    "idp": "node scripts/start-idp.mjs",
+    "test:e2e": "playwright test -c playwright.config.ts",
+    "test:e2e:entra": "playwright test -c playwright.entra.config.ts",
+    "test:e2e:headed": "playwright test -c playwright.config.ts --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
