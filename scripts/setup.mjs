@@ -52,7 +52,15 @@ else run(venvPython, ["-m", "pip", "install", "-r", "requirements-dev.txt"]);
 // 3. Playwright's browser.
 run(process.execPath, [path.join(ROOT, "node_modules", "@playwright", "test", "cli.js"), "install", "chromium"]);
 
-// 4. Local IdP: JDK + mock-oauth2-server into .tools/ (~200 MB), so the first start isn't slow.
-run(process.execPath, [path.join(ROOT, "scripts", "start-idp.mjs"), "--fetch-only"]);
-
-console.log(`\nSetup complete. Next: npm start  (then open ${loadProfile("local").S1_WEB_BASE_URL})`);
+// 4. Local IdP: mock-oauth2-server's jars into .tools/ (~30 MB), run later on the system JDK.
+//    Without a JDK, the IdP can still run in Docker, so this doesn't fail the setup.
+console.log(`\n> node scripts/start-idp.mjs --fetch-only`);
+const idp = spawnSync(process.execPath, [path.join(ROOT, "scripts", "start-idp.mjs"), "--fetch-only"], { cwd: ROOT, stdio: "inherit" });
+if (idp.status === 2) {
+  console.log("\nSetup complete, except the local IdP: it needs a JDK 17+ (see above), or run it in Docker:" +
+    "\n  docker compose up -d idp\nThen: npm start");
+} else if (idp.status !== 0) {
+  throw new Error("failed to download the local IdP (see above). Behind a proxy? See README > Troubleshooting.");
+} else {
+  console.log(`\nSetup complete. Next: npm start  (then open ${loadProfile("local").S1_WEB_BASE_URL})`);
+}
