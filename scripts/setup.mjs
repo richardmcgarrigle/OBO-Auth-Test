@@ -1,8 +1,9 @@
-// One-time setup after `npm install`: Python venv + packages, Playwright's Chromium, and the local IdP download.
+// One-time setup after `npm install`: Python venv + packages, Playwright's Chromium, and the local IdP's Docker image.
 // Safe to re-run. Usage: npm run setup
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { DOCKER } from "./idp.mjs";
 import { ROOT, loadProfile } from "./profile.mjs";
 
 const isWin = process.platform === "win32";
@@ -52,15 +53,15 @@ else run(venvPython, ["-m", "pip", "install", "-r", "requirements-dev.txt"]);
 // 3. Playwright's browser.
 run(process.execPath, [path.join(ROOT, "node_modules", "@playwright", "test", "cli.js"), "install", "chromium"]);
 
-// 4. Local IdP: mock-oauth2-server's jars into .tools/ (~30 MB), run later on the system JDK.
-//    Without a JDK, the IdP can still run in Docker, so this doesn't fail the setup.
-console.log(`\n> node scripts/start-idp.mjs --fetch-only`);
-const idp = spawnSync(process.execPath, [path.join(ROOT, "scripts", "start-idp.mjs"), "--fetch-only"], { cwd: ROOT, stdio: "inherit" });
-if (idp.status === 2) {
-  console.log("\nSetup complete, except the local IdP: it needs a JDK 17+ (see above), or run it in Docker:" +
-    "\n  docker compose up -d idp\nThen: npm start");
-} else if (idp.status !== 0) {
-  throw new Error("failed to download the local IdP (see above). Behind a proxy? See README > Troubleshooting.");
+// 4. Local IdP: pull its Docker image now, so the first start isn't slow.
+//    Without Docker, setup still finishes and says what to install.
+console.log(`\n> ${DOCKER} compose pull idp`);
+const pulled = spawnSync(DOCKER, ["compose", "pull", "idp"], { cwd: ROOT, stdio: "inherit" });
+if (pulled.error) {
+  console.log(`\nSetup complete, except the local IdP: it runs in Docker, and \`${DOCKER}\` wasn't found.` +
+    "\nInstall Docker Desktop (or another Docker engine with Compose v2), start it, then: npm start");
+} else if (pulled.status !== 0) {
+  throw new Error("couldn't pull the IdP image (see above). Is Docker running? Behind a proxy? See README > Troubleshooting.");
 } else {
   console.log(`\nSetup complete. Next: npm start  (then open ${loadProfile("local").S1_WEB_BASE_URL})`);
 }

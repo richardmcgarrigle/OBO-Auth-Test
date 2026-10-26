@@ -3,8 +3,8 @@
 A runnable proof of the Microsoft Entra **On-Behalf-Of (OBO)** flow. A backend API receives a user's token from a
 front end, swaps it for a token to call another API as that same user, and the user signs in only once.
 
-Everything runs on your machine, including the identity provider, so no Entra tenant, cloud account or Docker is
-needed. The same code can later be pointed at a real Entra tenant by changing configuration only.
+Everything runs on your machine, including the identity provider (in Docker), so no Entra tenant or cloud account
+is needed. The same code can later be pointed at a real Entra tenant by changing configuration only.
 
 - [Get started from scratch](#get-started-from-scratch)
 - [What you'll see](#what-youll-see)
@@ -23,13 +23,13 @@ needed. The same code can later be pointed at a real Entra tenant by changing co
 |----------|---------|------------|
 | **Node.js** | 20 or newer | `node --version` |
 | **uv** *or* **Python** | uv: any recent version; Python: 3.10 or newer | `uv --version` / `python --version` |
-| **Java (JDK)** | 17 or newer | `java -version` |
+| **Docker** with Compose v2 | Docker Desktop, or any Docker engine | `docker compose version` |
 | Internet access | first setup only | – |
 
-The local identity provider runs on **your own JDK**: `JAVA_HOME` if it's set, otherwise `java` on your PATH. If your
-organisation provides a JDK, use that; if it isn't on your PATH, set `JAVA_HOME` to its folder. Nothing is installed
-outside the project folder, and no native executables are downloaded. You don't need Docker. If you have no JDK but
-do have Docker, see [the local identity provider](#the-local-identity-provider).
+The local identity provider runs as a Docker container. Docker must be **running** (for Docker Desktop: started, with
+the whale icon showing) before `npm start` or the tests. Docker Desktop needs admin rights to install, and a paid
+subscription in larger organisations; if your organisation provides a different Docker engine, or Podman, that works
+too (for Podman, set `DOCKER=podman`).
 
 [uv](https://docs.astral.sh/uv/) is recommended because it fetches the right Python version itself. If you already
 have Python 3.10+, that works too.
@@ -38,21 +38,21 @@ have Python 3.10+, that works too.
 ```powershell
 winget install OpenJS.NodeJS.LTS
 winget install astral-sh.uv
-winget install EclipseAdoptium.Temurin.21.JDK   # skip if you already have a JDK 17+
+winget install Docker.DockerDesktop              # skip if you already have Docker
 ```
 Then **close and reopen your terminal** so the new commands are on your PATH.
 
 **macOS** ([Homebrew](https://brew.sh)):
 ```bash
 brew install node uv
-brew install --cask temurin@21   # skip if you already have a JDK 17+
+brew install --cask docker      # Docker Desktop; skip if you already have Docker
 ```
 
 **Linux:**
 ```bash
 # Node.js 20+: from your package manager, https://nodejs.org or nvm
 curl -LsSf https://astral.sh/uv/install.sh | sh
-sudo apt install openjdk-21-jdk   # or your distribution's JDK 17+; skip if you already have one
+# Docker Engine + Compose plugin: https://docs.docker.com/engine/install/ (skip if you already have Docker)
 ```
 
 ### 2. Get the code
@@ -74,8 +74,8 @@ npm run setup
 1. Creates a Python virtual environment in `.venv` (with uv if available, otherwise your Python).
 2. Installs the Python packages from `requirements-dev.txt`.
 3. Installs the Chromium browser Playwright uses for the tests.
-4. Downloads the local identity provider's Java libraries from Maven Central into `.tools/` (about 30 MB). It checks
-   your JDK first. If none is found, setup still finishes, and tells you how to fix it or use Docker instead.
+4. Pulls the local identity provider's Docker image (`ghcr.io/navikt/mock-oauth2-server:6.1.3`). If Docker isn't
+   installed, setup still finishes and tells you what to install.
 
 On **Linux**, Chromium may also need system libraries: `npx playwright install-deps chromium` (uses sudo).
 
@@ -85,8 +85,9 @@ On **Linux**, Chromium may also need system libraries: `npx playwright install-d
 npm start
 ```
 
-Wait for `Profile "local" is up`, then open **http://localhost:8001** and follow [What you'll see](#what-youll-see).
-Press **Ctrl+C** to stop everything.
+This starts the identity provider's container, then the three apps. Wait for `Profile "local" is up`, then open
+**http://localhost:8001** and follow [What you'll see](#what-youll-see). Press **Ctrl+C** to stop everything,
+including the container.
 
 ### 5. Run the end-to-end tests
 
@@ -94,7 +95,7 @@ Press **Ctrl+C** to stop everything.
 npm run test:e2e
 ```
 
-This starts all the services itself (or reuses ones already running from `npm start`), signs in through a real
+This starts all the services itself, including the container (or reuses ones already running from `npm start`), signs in through a real
 browser, and checks every step of the flow. Expect `10 passed`. Use `npm run test:e2e:headed` to watch the browser,
 and `npx playwright show-report` for a step-by-step report.
 
@@ -127,9 +128,10 @@ To start again as a different user, click **Sign out of System One** or use a pr
 | *Address already in use*, or the wrong app appears on a port | Something else is using 9000, 8001, 8002 or 8011. Stop it, or change the ports in `env/local.env`. |
 | Page shows old content or *undefined* | Your browser cached an older app from the same address. Hard-refresh with **Ctrl+Shift+R** (macOS **Cmd+Shift+R**). |
 | Visiting http://localhost:9000 shows `{"detail":"Not Found"}` / 404 | Expected: the identity provider has no home page. Start from http://localhost:8001. |
-| *[idp] Needs a JDK 17 or newer* | Install a JDK 17+, or set `JAVA_HOME` to the one you have (its folder, not `bin`), then re-run `npm run setup`. Or use Docker: `docker compose up -d idp`. |
-| Setup can't download from Maven Central (corporate network) | To use your company's Maven mirror, set `COURSIER_REPOSITORIES` to its URL, for example `https://artifactory.example.com/maven`. For an HTTP proxy, set `JAVA_TOOL_OPTIONS=-Dhttps.proxyHost=proxy.example.com -Dhttps.proxyPort=8080`. Or use Docker: `docker compose up -d idp`. |
-| Setup can't download `coursier.jar` from GitHub | Download it on another machine from https://github.com/coursier/coursier/releases/download/v2.1.26/coursier.jar and save it as `.tools/coursier-v2.1.26.jar`. |
+| *The local IdP needs Docker with Compose v2* | Install Docker (see Prerequisites) and open a new terminal. |
+| *`docker compose up -d idp` failed* / *Cannot connect to the Docker daemon* | Docker isn't running. Start Docker Desktop and wait until it says it's running, then retry. |
+| *idp did not become ready* | See what the container says: `docker compose logs idp`. |
+| Can't pull the image from `ghcr.io` (corporate network) | Configure Docker's proxy or registry mirror (Docker Desktop: Settings > Resources > Proxies), or ask for the image to be mirrored in your company registry and change `image:` in `docker-compose.yml`. |
 
 ---
 
@@ -193,11 +195,13 @@ Norwegian Labour and Welfare Administration) built it to test Azure AD / Entra O
 request Entra does. It's configured here to issue Entra v2-shaped tokens (`aud`, `scp`, `azp`, `oid`, `tid`,
 `ver: 2.0`).
 
-- **Without Docker (default):** `scripts/start-idp.mjs` runs the server on your JDK (17+; `JAVA_HOME`, else `java` on
-  PATH). The server's libraries are fetched from Maven Central into `.tools/` by [Coursier](https://get-coursier.io),
-  a dependency fetcher that is itself a jar run on the same JDK.
-- **With Docker:** `docker compose up -d idp` runs the same version and config. The scripts detect it on port 9000
-  and reuse it.
+It runs as the `idp` service in `docker-compose.yml`: NAV's official image, with `idp/mock-oauth2-config.json`
+mounted in, published on `127.0.0.1:9000` only.
+
+- `npm start` and `npm run test:e2e` start the container if nothing is answering on port 9000, and stop it when they
+  finish. They leave alone a container they didn't start.
+- To keep it running between runs: `npm run idp:up`, and later `npm run idp:down`. Logs: `docker compose logs -f idp`.
+- To use Podman instead of Docker, set `DOCKER=podman`.
 
 Mock limitations (Entra enforces these; the tests cover our side of the contract):
 - The mock doesn't verify the OBO `assertion` or `requested_token_use`. It decides the token's audience by the
@@ -306,11 +310,11 @@ obo-poc/
   system_two/               embeddable page + API: main.py, static/embed.html
   idp/                      local identity provider config
   env/                      launch profiles (local.env, entra.env.example)
-  scripts/                  setup, launcher, IdP starter (Node.js)
+  scripts/                  setup, launcher, IdP container control (Node.js)
   e2e/                      Playwright tests
   tests/                    Python unit tests
-  docker-compose.yml        optional: run the identity provider in Docker
+  docker-compose.yml        the identity provider's container
 ```
 
-If you share this as a zip, leave out `.venv/`, `node_modules/`, `.tools/`, `test-results/`,
+If you share this as a zip, leave out `.venv/`, `node_modules/`, `test-results/`,
 `playwright-report/` and `env/entra.env`. Recipients recreate them with the steps above.

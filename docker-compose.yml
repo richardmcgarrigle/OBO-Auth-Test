@@ -1,12 +1,13 @@
-# Docker alternative to scripts/start-idp.mjs: same server, same version, same config.
-# `docker compose up -d idp`, then `npm start` / `npm run test:e2e` reuse it on :9000.
+# The local IdP. npm start and the e2e tests start and stop it for you (scripts/idp.mjs);
+# by hand: `npm run idp:up` / `npm run idp:down`, or `docker compose up -d idp` / `docker compose down`.
+name: obo-poc
 services:
   idp:
     image: ghcr.io/navikt/mock-oauth2-server:6.1.3
     ports:
-      - "9000:9000"
+      - "127.0.0.1:${IDP_PORT:-9000}:8080"  # localhost only
     environment:
-      SERVER_PORT: "9000"
+      SERVER_PORT: "8080"
       JSON_CONFIG_PATH: /config/mock-oauth2-config.json
     volumes:
       - ./idp/mock-oauth2-config.json:/config/mock-oauth2-config.json:ro

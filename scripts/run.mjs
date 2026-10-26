@@ -1,13 +1,16 @@
-// Starts every service for a profile and keeps them running until Ctrl+C.
+// Starts every service for a profile (plus the IdP container for the mock profile) and keeps them running until Ctrl+C.
 // Usage: node scripts/run.mjs [local|entra]   (npm run start / npm run start:entra)
 import { execSync, spawn } from "node:child_process";
+import { isUp, startIdp, stopIdp } from "./idp.mjs";
 import { ROOT, loadProfile, services } from "./profile.mjs";
 
 const profileName = process.argv[2] || "local";
 const profile = loadProfile(profileName);
 const children = [];
+let startedIdp = false;
 
 function stopAll() {
+  if (startedIdp) stopIdp(profile);  // leave an IdP we didn't start (e.g. `npm run idp:up`) running
   for (const child of children) {
     if (child.exitCode !== null) continue;
     // shell:true wraps each service in a shell, so kill the whole process tree.
@@ -17,7 +20,7 @@ function stopAll() {
 }
 
 async function waitFor(url, name) {
-  for (let i = 0; i < 360; i++) {  // first IdP start downloads a JDK
+  for (let i = 0; i < 60; i++) {
     if (await isUp(url)) return;
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -26,12 +29,17 @@ async function waitFor(url, name) {
 
 process.on("SIGINT", () => { stopAll(); process.exit(0); });
 
-async function isUp(url) {
-  try { return (await fetch(url)).status < 500; } catch { return false; }
+if (profile.IDP_KIND === "mock") {
+  try {
+    startedIdp = await startIdp(profile);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }
 
 for (const svc of services(profile)) {
-  if (await isUp(svc.url)) {  // e.g. the IdP from `docker compose up idp`
+  if (await isUp(svc.url)) {
     console.log(`>>> ${svc.name} already running at ${svc.url}, reusing it`);
     continue;
   }

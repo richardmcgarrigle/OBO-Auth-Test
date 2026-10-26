@@ -27,17 +27,10 @@ export function loadProfile(name) {
   return vars;
 }
 
-/** Processes to run for a profile. The IdP only runs locally for the mock profile. */
+/** The app processes to run for a profile. The mock profile's IdP is a Docker container: see scripts/idp.mjs. */
 export function services(profile) {
   const port = (url) => new URL(url).port;
   const list = [];
-  if (profile.IDP_KIND === "mock") {
-    list.push({
-      name: "idp",
-      command: `node "${path.join(ROOT, "scripts", "start-idp.mjs")}"`,
-      url: `${profile.IDP_AUTHORITY}/.well-known/openid-configuration`,
-    });
-  }
   for (const [name, module, baseUrl] of [
     ["system-one-web", "system_one_web.main", profile.S1_WEB_BASE_URL],
     ["system-one-api", "system_one_api.main", profile.S1_API_BASE_URL],

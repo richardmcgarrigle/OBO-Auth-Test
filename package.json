@@ -9,7 +9,8 @@
     "setup": "node scripts/setup.mjs",
     "start": "node scripts/run.mjs local",
     "start:entra": "node scripts/run.mjs entra",
-    "idp": "node scripts/start-idp.mjs",
+    "idp:up": "node scripts/idp.mjs up",
+    "idp:down": "node scripts/idp.mjs down",
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:entra": "playwright test -c playwright.entra.config.ts",
     "test:e2e:headed": "playwright test -c playwright.config.ts --headed"
