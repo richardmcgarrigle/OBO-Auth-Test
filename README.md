@@ -126,17 +126,37 @@ To start again as a different user, click **Sign out of System One** or use a pr
 
 ## How it works
 
-```text
-Browser                       System One API (8011)            IdP (9000)              System Two (8002)
-SPA (8001) --auth code+PKCE-------------------------------> /authorize, /token
-   | user token (aud = System One API, azp = system-one-web)
-   |--Bearer user token-------> validate (JWKS, iss, aud, scp)
-   |                            POST /token  jwt-bearer -------> OBO token (aud = System Two,
-   |                              assertion=<user token>          azp = system-one-api, same user)
-   |                              requested_token_use=on_behalf_of
-   |                            GET /api/me  Bearer OBO token ---------------------------> validate -> user
-   |<--OBO token (for iframe)---|
-   |--postMessage {token} to the System Two iframe (exact origin) ------------------------> POST /session -> cookie
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SPA as System One web<br/>(browser, :8001)
+    participant IdP as Identity provider<br/>(:9000)
+    participant API as System One API<br/>(:8011)
+    participant S2 as System Two<br/>(:8002)
+
+    SPA->>IdP: Sign in: auth code + PKCE
+    IdP-->>SPA: User token<br/>aud = System One API, azp = system-one-web
+
+    SPA->>API: Request with Bearer user token
+    Note over API: Validate signature (JWKS),<br/>iss, aud, exp, scp
+
+    API->>IdP: POST /token<br/>grant_type = jwt-bearer<br/>assertion = user token<br/>requested_token_use = on_behalf_of
+    IdP-->>API: OBO token<br/>aud = System Two, azp = system-one-api, same user
+
+    rect rgba(127, 127, 127, 0.1)
+    Note over API,S2: Use 1: classic OBO (server to server)
+    API->>S2: GET /api/me with Bearer OBO token
+    S2-->>API: The user, as System Two sees them
+    API-->>SPA: Result
+    end
+
+    rect rgba(127, 127, 127, 0.1)
+    Note over SPA,S2: Use 2: iframe hand-off
+    SPA->>API: POST /api/system-two/token with Bearer user token
+    API-->>SPA: OBO token (from the same exchange as steps 3 to 5)
+    SPA->>S2: postMessage to the embedded iframe (exact origin)
+    S2->>S2: POST /session: validate token, set session cookie
+    end
 ```
 
 The OBO token is used two ways:
