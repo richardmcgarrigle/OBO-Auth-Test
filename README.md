@@ -153,7 +153,7 @@ sequenceDiagram
     rect rgba(127, 127, 127, 0.1)
     Note over SPA,S2: Use 2: iframe hand-off
     SPA->>API: POST /api/system-two/token with Bearer user token
-    API-->>SPA: OBO token (from the same exchange as steps 3 to 5)
+    API-->>SPA: OBO token (the API runs the same exchange as steps 4 and 5)
     SPA->>S2: postMessage to the embedded iframe (exact origin)
     S2->>S2: POST /session: validate token, set session cookie
     end
